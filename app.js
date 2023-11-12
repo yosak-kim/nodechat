@@ -5,10 +5,12 @@ const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const nunjucks = require('nunjucks');
 const dotenv = require('dotenv');
+const ColorHash = require('color-hash').default; //뒤에 default를 붙여줘야 함
 
 dotenv.config();
-const webSocket = require('./socket.old');
+const webSocket = require('./socket');
 const indexRouter = require('./routes');
+const connect = require('./schemas');
 
 const app = express();
 app.set('port', process.env.PORT || 8005);
@@ -19,12 +21,9 @@ nunjucks.configure('views', {
   watch: true,
 });
 
-app.use(morgan('dev'));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser(process.env.COOKIE_SECRET));
-app.use(session({
+connect();
+
+const sessionMiddleware = session({
   resave: false,
   saveUninitialized: false,
   secret: process.env.COOKIE_SECRET,
@@ -32,7 +31,22 @@ app.use(session({
     httpOnly: true,
     secure: false,
   },
-}));
+});
+
+app.use(morgan('dev'));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser(process.env.COOKIE_SECRET));
+app.use(sessionMiddleware);
+
+app.use((req, res, next) => {
+  if (!req.session.color) {
+    const colorHash = new ColorHash();
+    req.session.color = colorHash.hex(req.sessionID);
+  }
+  next();
+});
 
 app.use('/', indexRouter);
 
@@ -54,4 +68,4 @@ const server = app.listen(app.get('port'), () => {
   console.log(app.get('port'), '번 포트에서 대기 중.');
 }); //기존의 app.listen()을 server에 저장한 후 
 
-webSocket(server); //webSocket을 여기에 연결함. 이제 웹소켓 서버가 됨
+webSocket(server, app, sessionMiddleware); //webSocket을 여기에 연결함. 이제 웹소켓 서버가 됨

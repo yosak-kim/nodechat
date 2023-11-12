@@ -10,12 +10,13 @@
   <div>F12를 눌러 console 탭과 network 탭을 확인하세요.</div>
   <script src="/socket.io/socket.io.js">//실제 파일이 아닌 socket.io에서 제공하는 스크립트. 이것을 통해 유사 서버 API로 웹소켓 통신이 가능 </script> 
   <script>
-    const socket = io.connect('http://localhost:8005', { //여기서 io객체는 위의 스크립트가 제공한 것이며, 여기에 서버 주소를 인수로 넣어 전달. ws://가 아닌 http://프로토콜을 사용
+    const socket = io.connect('http://localhost:8005', { //여기서 io객체는 위의 스크립트가 제공한 것이며, 여기에 서버 주소를 인수로 넣어 전달. ws://가 아닌 http://프로토콜을 사용. 
+      // 처음에 http의 폴링 방식으로 연결하기 때문. 이렇게 해 놓으면 웹소켓을 지원하는 브라우저에서는 웹소켓으로, 지원하지 않는 브라우저에서는 폴링 방식으로 연결됨.
       path: '/socket.io', //이 옵션이 서버의 path옵션과 같아야 통신이 가능함.
     });
-    socket.on('news', function (data) {
+    socket.on('news', function (data) { //서버에서 보내는 news 이벤트를 받기 위해 미리 달아놓은 리스너
       console.log(data);
-      socket.emit('reply', 'Hello Node.js');
+      socket.emit('reply', 'Hello Node.js'); //서버의 reply 이벤트리스너로 이벤트를 보냄.
     })
   </script>
 </body>
