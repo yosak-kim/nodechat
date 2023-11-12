@@ -120,7 +120,7 @@ router.post('/room/:id/gif', upload.single('gif'), async (req, res, next) => {
       user: req.session.color,
       gif: req.file.filename,
     });
-    req.app.get('io'), of('/chat').to(req.params.id).emit('chat', chat);
+    req.app.get('io').of('/chat').to(req.params.id).emit('chat', chat);
     res.send('ok');
   } catch (error) {
     console.error(error);
