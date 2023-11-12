@@ -41,6 +41,7 @@ module.exports = (server, app, sessionMiddleware) => {
     socket.to(roomId).emit('join', { //to 메소드로 특정 방에 데이터를 보낼 수 있음
       user: 'system',
       chat: `${req.session.color}님이 입장하셨습니다.`, //sessionMiddleware를 달아주었으므로 세션에서 불러올 수 있음
+      number:socket.adapter.rooms[roomId].length,
     });
 
     socket.on('disconnect', () => {
@@ -66,6 +67,7 @@ module.exports = (server, app, sessionMiddleware) => {
         socket.to(roomId).emit('exit', {
           user: 'system',
           chat: `${req.session.color}님이 퇴장하셨습니다.`,
+          number:socket.adapter.rooms[roomId].length,
         });
       }
     });
