@@ -57,7 +57,7 @@ router.get('/room/:id', async (req, res, next) => { // 채팅방을 렌더링. i
       room,
       title: room.title,
       chats, //여기서 이전 대화내역을 불러옴
-      current:(rooms && rooms[req.params.id] && rooms[req.params.id].length +1)||1, //그냥 rooms[req.params.id].length 만 하면 length가 없다고 오류가 뜨는 이유가 뭐지?
+      current: (rooms && rooms[req.params.id] && rooms[req.params.id].length + 1) || 1, //그냥 rooms[req.params.id].length 만 하면 length가 없다고 오류가 뜨는 이유가 뭐지?
       user: req.session.color,
     });
   } catch (error) {
@@ -128,5 +128,30 @@ router.post('/room/:id/gif', upload.single('gif'), async (req, res, next) => {
     next(error);
   }
 });
+
+router.post('/room/:id/sys', async (req, res, next) => {
+  try {
+    const chat = req.body.type === 'join'
+      ? `${req.session.color}님이 입장하셨습니다.`
+      : `${req.session.color}님이 퇴장하셨습니다.`;
+    const sys = new Chat({
+      room: req.params.id,
+      user: 'system',
+      chat,
+    });
+    await sys.save();
+    req.app.get('io').of('/chat').to(req.params.id).emit(req.body.type, {
+      user:'system',
+      chat,
+    });
+    res.send('ok');
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+
+
 
 module.exports = router;

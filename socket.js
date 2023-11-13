@@ -1,5 +1,6 @@
 const SocketIO = require('socket.io');
 const axios = require('axios');
+/*보통 axios.post는 프론트엔드 스크립트에서 사용했으나, 여기서는 서버사이드에서 axios를 사용하고 있다.*/
 /**서버에서 axios요청을 보낼 경우 쿠키가 같이 보내지지 않아 express-session이 요청자가 누구인지 식별할 수 없음.*/
 /**그래서 요청 헤더에 세션쿠키를 직접 넣어서 보내기 위해 cookieParser모듈을 사용해서 io객체에 연결함*/
 const cookieParser = require('cookie-parser');
@@ -38,10 +39,21 @@ module.exports = (server, app, sessionMiddleware) => {
     /** join과 leave는 방의 아이디를 인수로 받음*/
     /** socket.request.headers.referer로 현재 페이지 URL 가져올 수 있음. 여기서 split과 replace로 방 아이디 부분 따냄 */
 
-    socket.to(roomId).emit('join', { //to 메소드로 특정 방에 데이터를 보낼 수 있음
-      user: 'system',
-      chat: `${req.session.color}님이 입장하셨습니다.`, //sessionMiddleware를 달아주었으므로 세션에서 불러올 수 있음
-      number:socket.adapter.rooms[roomId].length,
+    // socket.to(roomId).emit('join', { //to 메소드로 특정 방에 데이터를 보낼 수 있음
+    //   user: 'system',
+    //   chat: `${req.session.color}님이 입장하셨습니다.`, //sessionMiddleware를 달아주었으므로 세션에서 불러올 수 있음
+    //   number:socket.adapter.rooms[roomId].length,
+    // });
+
+    axios.post(`http://localhost:8005/room/${roomId}/sys`, {
+      type: 'join',
+    }, {
+      headers: {
+        Cookie: `connect.sid=${'s%3A' + cookie.sign(req.signedCookies['connect.sid'],  process.env.COOKIE_SECRET)}` 
+        // 
+        //cookie.sign은 cookie-signature의 메소드이다. sign(string, cipher key)의 구조이므로 앞에는 프론트에서 온 서명된 쿠키를 넣고, 뒤에는 암호키인 COOKIE_SECRET을 넣은 것. 그리고 마지막에 s%3A를 붙여서 완성.
+        //그러면 프론트에서 온 서명된쿠키와 서버사이드에서 보낸 쿠키가 같아져서 동일인이라는 것이 증명됨
+      }, //아래 axios.delete 와 구조가 비슷함을 알 수 있다.
     });
 
     socket.on('disconnect', () => {
@@ -64,10 +76,17 @@ module.exports = (server, app, sessionMiddleware) => {
             console.error(error);
           });
       } else {
-        socket.to(roomId).emit('exit', {
-          user: 'system',
-          chat: `${req.session.color}님이 퇴장하셨습니다.`,
-          number:socket.adapter.rooms[roomId].length,
+        // socket.to(roomId).emit('exit', {
+        //   user: 'system',
+        //   chat: `${req.session.color}님이 퇴장하셨습니다.`,
+        //   number:socket.adapter.rooms[roomId].length,
+        // });
+        axios.post(`http://localhost:8005/room/${roomId}/sys`, {
+          type: 'exit',
+        }, {
+          headers: {
+            Cookie: `connect.sid=${'s%3A' + cookie.sign(req.signedCookies['connect.sid'], process.env.COOKIE_SECRET)}` //connect.sid는 express-session의 세션 쿠키
+          },
         });
       }
     });
