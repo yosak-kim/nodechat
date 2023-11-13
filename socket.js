@@ -1,8 +1,11 @@
 const SocketIO = require('socket.io');
 const axios = require('axios');
-/*보통 axios.post는 프론트엔드 스크립트에서 사용했으나, 여기서는 서버사이드에서 axios를 사용하고 있다.*/
-/**서버에서 axios요청을 보낼 경우 쿠키가 같이 보내지지 않아 express-session이 요청자가 누구인지 식별할 수 없음.*/
-/**그래서 요청 헤더에 세션쿠키를 직접 넣어서 보내기 위해 cookieParser모듈을 사용해서 io객체에 연결함*/
+/* 보통 axios.post는 프론트엔드 스크립트에서 사용했으나, 여기서는 서버사이드에서 axios를 사용하고 있다.*/
+/* 서버에서 axios요청을 보낼 경우 쿠키가 같이 보내지지 않아 express-session이 요청자가 누구인지 식별할 수 없음.*/
+/* 그래서 요청 헤더에 세션쿠키를 직접 넣어서 보내기 위해 cookieParser모듈을 사용해서 io객체에 연결함*/
+
+/* 정확히 말하자면, 프론트에서 보낸 쿠키가 서버사이드로 오는 순간 express-session이 그것을 decrypt해 버리기 때문에 더 이상 사용할 수 없음 */
+/* 그래서 여기서 똑같은 방법으로 다시 암호화해서, 프론트에서 온 세션쿠키와 비교해 동일인이라는 것을 증빙하기 위함임 */
 const cookieParser = require('cookie-parser');
 
 const cookie = require('cookie-signature');//쿠키 암호화를 위해 cookie-signature 모듈도 사용
@@ -49,12 +52,12 @@ module.exports = (server, app, sessionMiddleware) => {
       type: 'join',
     }, {
       headers: {
-        Cookie: `connect.sid=${'s%3A' + cookie.sign(req.signedCookies['connect.sid'],  process.env.COOKIE_SECRET)}` 
+        Cookie: `connect.sid=${'s%3A' + cookie.sign(req.signedCookies['connect.sid'], process.env.COOKIE_SECRET)}`
         // 
         //cookie.sign은 cookie-signature의 메소드이다. sign(string, cipher key)의 구조이므로 앞에는 프론트에서 온 서명된 쿠키를 넣고, 뒤에는 암호키인 COOKIE_SECRET을 넣은 것. 그리고 마지막에 s%3A를 붙여서 완성.
         //그러면 프론트에서 온 서명된쿠키와 서버사이드에서 보낸 쿠키가 같아져서 동일인이라는 것이 증명됨
       }, //아래 axios.delete 와 구조가 비슷함을 알 수 있다.
-    });
+    }); // 원래 코드에 있던 `${req.session.color}님이 입장(퇴장)하셨습니다.` 메시지 는 라우터로 옮겼다. router.post('/room/:id/sys',~) 로 
 
     socket.on('disconnect', () => {
       console.log('chat 네임스페이스 접속 해제');
@@ -90,5 +93,13 @@ module.exports = (server, app, sessionMiddleware) => {
         });
       }
     });
+    socket.on('dm', (data) => { //sendDM에서 실어 보낸 target, msg, from 이 여기로 도착한다.
+      socket.to(data.target).emit('dm', data); //socket.emit()하면 전체메시지, socket.to(개인 소켓).emit()하면 귓말.
+    });// 이것을 받을 프론트엔드 함수는 chat.html의 socket.on('dm',function(data))에 구현되어 있음. 
+
+    socket.on('ban', (data) => {
+      socket.to(data.id).emit('ban');
+    });
   });
+  
 };

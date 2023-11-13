@@ -45,7 +45,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io.connect('http://localhost:8005/chat', {
-    path: '/socket.io',
+    path: '/socket.io', //require('../socket')이 아닌 io.connect를 사용
   });
   socket.emit('join', new URL(location).pathname.split('/').at(-1));
   socket.on('join', function (data) {
@@ -55,8 +55,8 @@
     chat.textContent = data.chat;
     div.appendChild(chat);
     document.querySelector('#chat-list').appendChild(div);
-    const number=document.querySelector('#number')
-    number.textContent=data.number;
+    const number = document.querySelector('#number')
+    number.textContent = data.number;
   });
   socket.on('exit', function (data) {
     const div = document.createElement('div');
@@ -65,8 +65,8 @@
     chat.textContent = data.chat;
     div.appendChild(chat);
     document.querySelector('#chat-list').appendChild(div);
-    const number=document.querySelector('#number')
-    number.textContent=data.number;
+    const number = document.querySelector('#number')
+    number.textContent = data.number;
   });
   socket.on('chat', function (data) {
     const div = document.createElement('div');
@@ -77,7 +77,17 @@
     }
     const name = document.createElement('div');
     name.textContent = data.user;
-    div.appendChild(name);
+
+    if (data.user !== '{{user}}') { //본인인 경우 귓속말 버튼을 숨김
+      const dm = document.createElement('button');
+      dm.textContent = '귓속말';
+      dm.className = 'dm';
+      dm.dataset.socket = data.socket; //dataset은 데이터 안의 data-로 시작하는 속성을 불러올 수 있음
+      dm.addEventListener('click', sendDM); //sendDM은 스크립트 맨 마지막에 정의. 
+      name.appendChild(dm);
+      div.appendChild(name);
+    }
+
     if (data.chat) {
       const chat = document.createElement('div');
       chat.textContent = data.chat;
@@ -95,6 +105,7 @@
     if (e.target.chat.value) {
       axios.post('/room/{{room._id}}/chat', {
         chat: this.chat.value,
+        sid: socket.id,
       })
         .then(() => {
           e.target.chat.value = '';
@@ -116,5 +127,20 @@
         console.error(err);
       });
   });
+  const sendDM = function (e) {
+    const id = e.target.dataset.socket;
+    const prompt = window.prompt('귓속말을 입력하세요');
+    socket.emit('dm', { target: id, msg: prompt, from: '{{user}}' }); //'dm' 네임스페이스에 emit된 것은 socket.js에서 처리함. 여기서 실어 보낸 { } 이하 부분이 바로 socket.js로 보내지는 data임
+  };
+  Array.prototype.forEach.call(document.querySelectorAll('.dm'), (el) => { //모든 귓속말 버튼에 sendDM이벤트리스너를 붙임
+    el.addEventListener('click', sendDM);
+  });
+
+  /*data의 흐름: chat.html의 sendDM -> socket.js의 socket.on('dm') -> chat.html의 socket.on('dm') */
+  /*요약하자면 socket.js 서버는 중계기이고 각 클라이언트의 chat.html 사이에서 중계만 해 주는 것이다. */
+  socket.on('dm', function (data) { // socket.js에서 socket.on('dm', (data) => { 에서 emit된 데이터가 여기로 도착함. 
+    alert(data.from + ' 님에게 메시지가 도착했습니다:' + data.msg);
+  });
+
 </script>
 {% endblock %}

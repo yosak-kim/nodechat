@@ -83,11 +83,16 @@ router.delete('/room/:id', async (req, res, next) => {
 router.post('/room/:id/chat', async (req, res, next) => {
   try {
     const chat = await Chat.create({
-      room: req.params.id,
+      room: req.params.id, //소켓id까지는 DB에 저장할 필요 없으므로, 이렇게만 저장하고 밑에 emit할 땐 socket 포함해서 다시 씀
       user: req.session.color,
       chat: req.body.chat,
     });
-    req.app.get('io').of('/chat').to(req.params.id).emit('chat', chat);
+    req.app.get('io').of('/chat').to(req.params.id).emit('chat', {
+      socket: req.body.sid, //귓속말을 위해 추가. 메시지를 보내는 순간 송신자의 소켓id가 실린 채 보내진다.
+      room: req.params.id,
+      user: req.session.color,
+      chat: req.body.chat,
+    }); //'/room/:id/chat도, /room/:id/gif도, /room/:id/sys도, 메시지를 뿌리려면 무조건 emit을 써야 한다.
     res.send('ok');
   } catch (error) {
     console.error(error);
@@ -121,7 +126,12 @@ router.post('/room/:id/gif', upload.single('gif'), async (req, res, next) => {
       user: req.session.color,
       gif: req.file.filename,
     });
-    req.app.get('io').of('/chat').to(req.params.id).emit('chat', chat);
+    req.app.get('io').of('/chat').to(req.params.id).emit('chat', {
+      socket: req.body.sid,
+      room: req.params.id,
+      user: req.session.color,
+      gif: req.file.filename,
+    });
     res.send('ok');
   } catch (error) {
     console.error(error);
@@ -134,14 +144,13 @@ router.post('/room/:id/sys', async (req, res, next) => {
     const chat = req.body.type === 'join'
       ? `${req.session.color}님이 입장하셨습니다.`
       : `${req.session.color}님이 퇴장하셨습니다.`;
-    const sys = new Chat({
+    const sys = await Chat.create({
       room: req.params.id,
       user: 'system',
       chat,
     });
-    await sys.save();
     req.app.get('io').of('/chat').to(req.params.id).emit(req.body.type, {
-      user:'system',
+      user: 'system',
       chat,
     });
     res.send('ok');
