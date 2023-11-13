@@ -3,8 +3,14 @@
 {% block content %}
 <h1>{{title}}</h1>
 <a href="/" id="exit-btn">방 나가기</a>
-<span>참여자 수 : </span>
-<span id="number">{{current}}</span>
+<div>
+  <span>참여자 수 : </span>
+  <span id="number">{{current}}</span>
+</div>
+<div>
+  <span>방장 : </span>
+  <span id="room-owner" style="color: {{room.owner}}">{{room.owner}}</span>
+</div>
 <fieldset>
   <legend>채팅 내용</legend>
   <div id="chat-list">
@@ -68,7 +74,7 @@
     const number = document.querySelector('#number')
     number.textContent = data.number;
   });
-  socket.on('chat', function (data) {
+  socket.on('chat', function (data) { // socket.on은 '받는' 메소드. 여기서 data는 당연히 라우터에서 post방식으로 보낸 emit('chat') 이다. 콘솔 찍어서 확인해보면 socket, room, user, chat 이 나온다.
     const div = document.createElement('div');
     if (data.user === '{{user}}') {
       div.classList.add('mine');
@@ -82,9 +88,19 @@
       const dm = document.createElement('button');
       dm.textContent = '귓속말';
       dm.className = 'dm';
-      dm.dataset.socket = data.socket; //dataset은 데이터 안의 data-로 시작하는 속성을 불러올 수 있음
+      dm.dataset.socket = data.socket; //dataset은 소켓으로 받은 데이터. 콘솔 찍어서 확인해보면 socket, room, user, chat 이 나온다.
       dm.addEventListener('click', sendDM); //sendDM은 스크립트 맨 마지막에 정의. 
       name.appendChild(dm);
+      const owner = document.getElementById('room-owner').textContent;
+
+      if ('{{user}}' === owner) {
+        const banBtn = document.createElement('button');
+        banBtn.className = 'ban';
+        banBtn.textContent = '강퇴';
+        banBtn.dataset.socket = data.socket;
+        banBtn.addEventListener('click', ban);
+        name.appendChild(banBtn);
+      }
       div.appendChild(name);
     }
 
@@ -127,7 +143,7 @@
         console.error(err);
       });
   });
-  const sendDM = function (e) {
+  const sendDM = (e) => {
     const id = e.target.dataset.socket;
     const prompt = window.prompt('귓속말을 입력하세요');
     socket.emit('dm', { target: id, msg: prompt, from: '{{user}}' }); //'dm' 네임스페이스에 emit된 것은 socket.js에서 처리함. 여기서 실어 보낸 { } 이하 부분이 바로 socket.js로 보내지는 data임
@@ -138,9 +154,28 @@
 
   /*data의 흐름: chat.html의 sendDM -> socket.js의 socket.on('dm') -> chat.html의 socket.on('dm') */
   /*요약하자면 socket.js 서버는 중계기이고 각 클라이언트의 chat.html 사이에서 중계만 해 주는 것이다. */
-  socket.on('dm', function (data) { // socket.js에서 socket.on('dm', (data) => { 에서 emit된 데이터가 여기로 도착함. 
+  socket.on('dm', (data) => { // socket.js에서 socket.on('dm', (data) => { 에서 emit된 데이터가 여기로 도착함. 
     alert(data.from + ' 님에게 메시지가 도착했습니다:' + data.msg);
   });
+  const ban = (e) => {
+    const id = e.target.dataset.socket;
+    const name = e.target.textContent;
+    const owner = document.getElementById('room-owner').textContent;
+    // console.log(e.target.dataset);
+    // console.log(e.target.dataset.socket); // 이거 둘 다 콘솔 찍어보면 socket만 나온다. 상대의 아이디를 찍어내려면 어떻게?
+    if ('{{user}}' === owner && name !== owner) {
+      if (confirm(`강퇴하시겠습니까?`)) {
+        socket.emit('ban', { id });
+      }
+    }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.ban'), (el) => {
+    el.addEventListener('click', ban);
+  });
+  socket.on('ban', () => {
+    alert('강퇴되었습니다.');
+    location.href = '/';
+  })
 
 </script>
 {% endblock %}
